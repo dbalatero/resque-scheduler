@@ -157,13 +157,13 @@ pushed on to the work queues.  For obvious reasons, this process never exits.
 
     $ rake resque:scheduler 
 
-Supported environment variables are `VERBOSE` and `MUTE`.  If either is set to
-any nonempty value, they will take effect.  `VERBOSE` simply dumps more output
-to stdout.  `MUTE` does the opposite and silences all output. `MUTE` supercedes
-`VERBOSE`.
+Supported environment variables are:
 
+ * `VERBOSE` - dumps more output to log
+ * `LOG_FILE` - defines a file to log to
+ * `MUTE` - logs explicitly to /dev/null, silencing all output (overrides `LOG_FILE`)
 
-Plagurism alert
+Plagiarism alert
 ---------------
 
 This was intended to be an extension to resque and so resulted in a lot of the
