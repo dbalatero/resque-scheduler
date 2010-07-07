@@ -6,6 +6,41 @@ class Resque::SchedulerTest < Test::Unit::TestCase
     Resque::Scheduler.clear_schedule!
   end
 
+  def test_log_location_is_dev_null_on_mute
+    ENV['MUTE'] = "1"
+    assert_equal "/dev/null", Resque::Scheduler.log_location
+  ensure
+    ENV.delete('MUTE')
+  end
+
+  def test_log_location_is_log_file_if_given
+    ENV['LOG_FILE'] = '/tmp/log.txt'
+    assert_equal '/tmp/log.txt', Resque::Scheduler.log_location
+  ensure
+    ENV.delete('LOG_FILE')
+  end
+
+  def test_log_location_is_stdout_if_no_overrides_given
+    ['MUTE', 'LOG_FILE'].each { |key| ENV.delete(key) }
+    assert_equal STDOUT, Resque::Scheduler.log_location
+  end
+
+  def test_init_logger_sets_level_info_by_default
+    Resque::Scheduler.init_logger
+    assert_equal Logger::INFO, Resque::Scheduler.logger.level
+  ensure
+    mute_logger
+  end
+
+  def test_init_logger_sets_level_debug_in_verbose_mode
+    ENV['VERBOSE'] = "1"
+    Resque::Scheduler.init_logger
+    assert_equal Logger::DEBUG, Resque::Scheduler.logger.level
+  ensure
+    ENV.delete('VERBOSE')
+    mute_logger
+  end
+
   def test_enqueue_from_config_puts_stuff_in_the_resque_queue_without_class_loaded
     Resque::Job.stubs(:create).once.returns(true).with('joes_queue', 'BigJoesJob', '/tmp')
     Resque::Scheduler.enqueue_from_config('cron' => "* * * * *", 'class' => 'BigJoesJob', 'args' => "/tmp", 'queue' => 'joes_queue')

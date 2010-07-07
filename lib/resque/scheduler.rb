@@ -1,5 +1,6 @@
 require 'rufus/scheduler'
 require 'thwait'
+require 'logger'
 
 module Resque
 
@@ -9,11 +10,8 @@ module Resque
 
     class << self
 
-      # If true, logs more stuff...
-      attr_accessor :verbose
-      
-      # If set, produces no output
-      attr_accessor :mute
+      # This is where log output goes.
+      attr_accessor :logger
 
       # Schedule all jobs and continually look for delayed jobs (never returns)
       def run
@@ -45,7 +43,7 @@ module Resque
       # Pulls the schedule from Resque.schedule and loads it into the
       # rufus scheduler instance
       def load_schedule!
-        log! "Schedule empty! Set Resque.schedule" if Resque.schedule.empty?
+        logger.info "Schedule empty! Set Resque.schedule" if Resque.schedule.empty?
 
         Resque.schedule.each do |name, config|
           # If rails_env is set in the config, enforce ENV['RAILS_ENV'] as
@@ -53,14 +51,14 @@ module Resque
           # job should be scheduled regardless of what ENV['RAILS_ENV'] is set
           # to.
           if config['rails_env'].nil? || rails_env_matches?(config)
-            log! "Scheduling #{name} "
+            logger.info "Scheduling #{name} "
             if !config['cron'].nil? && config['cron'].length > 0
               rufus_scheduler.cron config['cron'] do
-                log! "queuing #{config['class']} (#{name})"
+                logger.info "queuing #{config['class']} (#{name})"
                 enqueue_from_config(config)
               end
             else
-              log! "no cron found for #{config['class']} (#{name}) - skipping"
+              logger.info "no cron found for #{config['class']} (#{name}) - skipping"
             end
           end
         end
@@ -82,14 +80,14 @@ module Resque
         # continue processing until there are no more ready timestamps
         end while !timestamp.nil?
       end
-      
+
       # Enqueues all delayed jobs for a timestamp
       def enqueue_delayed_items_for_timestamp(timestamp)
         item = nil
         begin
           handle_shutdown do
             if item = Resque.next_item_for_timestamp(timestamp)
-              log "queuing #{item['class']} [delayed]"
+              logger.debug "queuing #{item['class']} [delayed]"
               queue = item['queue'] || Resque.queue_from_class(constantize(item['class']))
               Job.create(queue, item['class'], *item['args'])
             end
@@ -139,15 +137,22 @@ module Resque
         exit if @sleeping
       end
 
-      def log!(msg)
-        puts "#{Time.now.strftime("%Y-%m-%d %H:%M:%S")} #{msg}" unless mute
+      # Returns the location to log to based on ENV vars.
+      def log_location
+        if ENV['MUTE']
+          '/dev/null'
+        elsif ENV['LOG_FILE']
+          File.expand_path(ENV['LOG_FILE'])
+        else
+          STDOUT
+        end
       end
 
-      def log(msg)
-        # add "verbose" logic later
-        log!(msg) if verbose
+      def init_logger
+        self.logger = Logger.new(log_location)
+        self.logger.level = ENV['VERBOSE'] ? Logger::DEBUG : Logger::INFO
+        self.logger
       end
-
     end
 
   end

@@ -9,8 +9,7 @@ namespace :resque do
     require 'resque'
     require 'resque_scheduler'
 
-    Resque::Scheduler.verbose = true if ENV['VERBOSE']
+    Resque::Scheduler.init_logger
     Resque::Scheduler.run
   end
-
 end

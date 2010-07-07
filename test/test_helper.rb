@@ -68,6 +68,12 @@ def context(*args, &block)
   klass.class_eval &block
 end
 
+def mute_logger
+  Resque::Scheduler.logger = Logger.new('/dev/null') # mute logging
+end
+
+mute_logger # always mute
+
 class SomeJob
   def self.perform(repo_id, path)
   end
